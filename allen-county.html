@@ -210,7 +210,7 @@
 </head>
 
 <body>
-  <div id="Div"></div>
+  <div id="viewDiv"></div>
   <div class="search-holder" id="searchDiv"></div>
   <div class="layer-list-holder" id="layerListDiv"></div>
 
@@ -267,7 +267,7 @@
       <div class="section">
         <div class="section-title">Kentucky Mesonet Stations</div>
         <div class="small">
-          Select a station to  its reported weather observations.
+          Select a station to view its reported weather observations.
           Station temperatures are labeled in °F and wind speed in mph;
         </div>
       </div>
@@ -291,7 +291,7 @@
   <script>
     require([
       "esri/Map",
-      "esri/s/Map",
+      "esri/views/MapView",
       "esri/layers/WMSLayer",
       "esri/layers/GraphicsLayer",
       "esri/Graphic",
@@ -302,7 +302,7 @@
       "esri/layers/FeatureLayer"
     ], function (
       Map,
-      Map,
+      MapView,
       WMSLayer,
       GraphicsLayer,
       Graphic,
@@ -320,30 +320,30 @@
         basemap: "topo-vector"
       });
 
-      const  = new Map({
-        container: "Div",
+      const view = new MapView({
+        container: "viewDiv",
         map: map,
         // Start centered on the BRADD region, one level closer than before.
         // Use center + zoom (rather than an extent, which overrides zoom).
         center: [-86.19, 36.75],
-        zoom: 11,
+        zoom: 14,
         constraints: {
           minZoom: 4
         }
       });
 
       // Experience Builder embeds can resize after startup. Reapply the
-      // intended regional point once the  is ready so it doesn't
+      // intended regional viewpoint once the view is ready so it doesn't
       // fall back to a statewide initial extent.
       // Move the zoom controls away from the weather panel, which covers
       // the upper-left corner. Add Home beside them in the lower-right.
-      .ui.move("zoom", "bottom-right");
+      view.ui.move("zoom", "bottom-right");
 
-      const homeWidget = new Home({ :  });
-      .ui.add(homeWidget, "bottom-right");
+      const homeWidget = new Home({ view: view });
+      view.ui.add(homeWidget, "bottom-right");
 
-      .when(function () {
-        view.goTo({ center: [-86.19, 36.75], zoom: 11 }, { animate: false })
+      view.when(function () {
+        view.goTo({ center: [-86.19, 36.75], zoom: 14 }, { animate: false })
           .then(function () {
             // Make the Home button return to the same BRADD regional view.
             homeWidget.viewpoint = view.viewpoint.clone();
