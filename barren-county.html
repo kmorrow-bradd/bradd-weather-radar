@@ -324,7 +324,7 @@
         map: map,
         // Start centered on the BRADD region, one level closer than before.
         // Use center + zoom (rather than an extent, which overrides zoom).
-        center: [-86.19, 37.5],
+        center: [-86.19, 36.97],
         zoom: 11,
         constraints: {
           minZoom: 4
@@ -342,7 +342,7 @@
       view.ui.add(homeWidget, "bottom-right");
 
       view.when(function () {
-        view.goTo({ center: [-85.93, 37.50], zoom: 11 }, { animate: false })
+        view.goTo({ center: [-85.93, 36.97], zoom: 11 }, { animate: false })
           .then(function () {
             // Make the Home button return to the same BRADD regional view.
             homeWidget.viewpoint = view.viewpoint.clone();
