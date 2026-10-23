@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Logan County Weather Information</title>
+
+  <link
+    rel="stylesheet"
+    href="https://js.arcgis.com/4.33/esri/themes/light/main.css"
+  >
+  <script src="https://js.arcgis.com/4.33/"></script>
+
+  <style>
+    html,
+    body,
+    #viewDiv {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+
+    #viewDiv {
+      position: absolute;
+      inset: 0;
+    }
+
+    .weather-panel {
+      position: absolute;
+      z-index: 10;
+      top: 65px;
+      left: 12px;
+      width: 250px;
+      max-height: calc(100% - 90px);
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #999;
+      border-radius: 5px;
+      box-shadow: 0 2px 7px #0003;
+      font-size: 12px;
+    }
+
+    .panel-header {
+      background: #f0f0f0;
+      padding: 9px 10px;
+      font-weight: bold;
+      border-bottom: 1px solid #ccc;
+    }
+
+    .panel-body {
+      padding: 10px;
+    }
+
+    .section {
+      margin-bottom: 13px;
+    }
+
+    .section-title {
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    button,
+    select {
+      padding: 5px 7px;
+      border: 1px solid #aaa;
+      background: white;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #eaf3fa;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    #radarTime {
+      font-weight: bold;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    #status {
+      color: #555;
+      margin-top: 5px;
+      line-height: 1.4;
+    }
+
+    #alerts {
+      border-top: 1px solid #ccc;
+      padding-top: 8px;
+    }
+
+    .alert-item {
+      border-left: 4px solid #d9534f;
+      background: #fff5f5;
+      margin: 6px 0;
+      padding: 7px;
+      cursor: pointer;
+      line-height: 1.35;
+    }
+
+    .alert-item:hover {
+      background: #ffe4e4;
+    }
+
+    .alert-item.minor {
+      border-left-color: #e6a23c;
+    }
+
+    .alert-item.watch {
+      border-left-color: #7b61a8;
+    }
+
+    .legend {
+      display: flex;
+      height: 9px;
+      margin: 6px 0 3px;
+      background: linear-gradient(
+        to right,
+        #b8e5ff,
+        #4295ff,
+        #1db74b,
+        #ffff00,
+        #ff9800,
+        #f21b1b,
+        #e900d5
+      );
+    }
+
+    .small {
+      color: #555;
+      font-size: 11px;
+    }
+
+    .search-holder {
+      position: absolute;
+      z-index: 11;
+      top: 10px;
+      left: 60px;
+      width: min(350px, calc(100% - 85px));
+    }
+
+    .search-holder .esri-search {
+      width: 100%;
+    }
+
+    .layer-list-holder {
+      position: absolute;
+      z-index: 11;
+      top: 10px;
+      right: 12px;
+      width: 220px;
+      max-height: 45%;
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #999;
+      border-radius: 4px;
+      box-shadow: 0 2px 7px #0003;
+    }
+
+    @media (max-width: 600px) {
+      .layer-list-holder {
+        top: 54px;
+        right: 8px;
+        width: 190px;
+        max-height: 35%;
+      }
+    }
+
+    .footer {
+      color: #666;
+      font-size: 10px;
+      line-height: 1.4;
+      border-top: 1px solid #ddd;
+      padding-top: 8px;
+    }
+
+    @media (max-width: 600px) {
+      .weather-panel {
+        top: 60px;
+        left: 8px;
+        width: 225px;
+        max-height: calc(100% - 75px);
+      }
+
+      .search-holder {
+        left: 45px;
+        width: calc(100% - 60px);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="viewDiv"></div>
+  <div class="search-holder" id="searchDiv"></div>
+  <div class="layer-list-holder" id="layerListDiv"></div>
+
+  <div class="weather-panel">
+    <div class="panel-header">LOGAN COUNTY WEATHER INFORMATION</div>
+
+    <div class="panel-body">
+
+      <div class="section">
+        <div class="section-title">NEXRAD Base Reflectivity</div>
+        <div class="legend"></div>
+        <div class="controls small">
+          <span>Lower</span>
+          <span style="flex: 1"></span>
+          <span>Higher dBZ</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Radar opacity</div>
+        <input
+          id="opacity"
+          type="range"
+          min="0"
+          max="100"
+          value="65"
+        >
+        <div><span id="opacityValue">65%</span></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Radar timestamp (UTC)</div>
+        <div id="radarTime">Loading radar…</div>
+
+        <div class="controls">
+          <button id="previous" title="Previous frame">◀</button>
+          <button id="play">▶ Play</button>
+          <button id="next" title="Next frame">▶|</button>
+        </div>
+
+        <div style="margin-top: 7px">
+          <label for="speed">Playback speed:</label>
+          <select id="speed">
+            <option value="1500">Slow</option>
+            <option value="1000">Normal</option>
+            <option value="750" selected>Fast</option>
+            <option value="500">Very fast</option>
+          </select>
+        </div>
+
+        <div id="status">Connecting to radar service…</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Kentucky Mesonet Stations</div>
+        <div class="small">
+          Select a station to view its reported weather observations.
+          Station temperatures are labeled in °F and wind speed in mph;
+        </div>
+      </div>
+
+      <div id="alerts" class="section">
+        <div class="section-title">Active Kentucky alerts</div>
+        <div id="alertStatus">Loading alerts…</div>
+        <div id="alertList"></div>
+        <button id="refreshAlerts">Refresh alerts</button>
+      </div>
+
+      <div class="footer">
+        Radar: Iowa Environmental Mesonet / NEXRAD<br>
+        Stations: Kentucky Mesonet GIS service<br>
+        Alerts: National Weather Service<br>
+        Radar timestamps are UTC. Not for life-safety decisions.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/WMSLayer",
+      "esri/layers/GraphicsLayer",
+      "esri/Graphic",
+      "esri/geometry/Polygon",
+      "esri/widgets/Search",
+      "esri/widgets/LayerList",
+      "esri/widgets/Home",
+      "esri/layers/FeatureLayer"
+    ], function (
+      Map,
+      MapView,
+      WMSLayer,
+      GraphicsLayer,
+      Graphic,
+      Polygon,
+      Search,
+      LayerList,
+      Home,
+      FeatureLayer
+    ) {
+      // --------------------------------------------------
+      // MAP
+      // --------------------------------------------------
+
+      const map = new Map({
+        basemap: "topo-vector"
+      });
+
+      const view = new MapView({
+        container: "viewDiv",
+        map: map,
+        // Start centered on the BRADD region, one level closer than before.
+        // Use center + zoom (rather than an extent, which overrides zoom).
+        center: [-86.88, 36.86],
+        zoom: 11,
+        constraints: {
+          minZoom: 4
+        }
+      });
+
+      // Experience Builder embeds can resize after startup. Reapply the
+      // intended regional viewpoint once the view is ready so it doesn't
+      // fall back to a statewide initial extent.
+      // Move the zoom controls away from the weather panel, which covers
+      // the upper-left corner. Add Home beside them in the lower-right.
+      view.ui.move("zoom", "bottom-right");
+
+      const homeWidget = new Home({ view: view });
+      view.ui.add(homeWidget, "bottom-right");
+
+      view.when(function () {
+        view.goTo({ center: [-86.88, 36.86], zoom: 11 }, { animate: false })
+          .then(function () {
+            // Make the Home button return to the same BRADD regional view.
+            homeWidget.viewpoint = view.viewpoint.clone();
+          })
+          .catch(function (error) {
+            console.warn("Could not apply the initial BRADD extent:", error);
+          });
+      });
+
+      const alertGraphics = new GraphicsLayer({
+        title: "NWS Active Alerts"
+      });
+
+      const search = new Search({
+  	view: view,
+  	includeDefaultSources: true,
+  	locationEnabled: true,
+  	container: document.getElementById("searchDiv")
+      });
+
+      // --------------------------------------------------
+      // NEXRAD RADAR WMS-T
+      // --------------------------------------------------
+      // The timestamp playback below uses estimated five-minute
+      // intervals. The service may not have imagery for every time.
+      //
+      // If the radar does not display, verify the advertised WMS
+      // layer name and TIME dimension in the provider's capabilities.
+
+      const radar = new WMSLayer({
+        url: "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r-t.cgi",
+        sublayers: [
+          {
+            name: "nexrad-n0r-wmst"
+          }
+        ],
+        opacity: 0.65,
+        visible: true,
+        customLayerParameters: {}
+      });
+
+      map.add(radar);
+
+      // --------------------------------------------------
+      // ACTIVE WILDFIRES (NIFC / ArcGIS USA Wildfires feed)
+      // --------------------------------------------------
+      // Current incidents are point locations for active/recent reported
+      // fires; current perimeters show mapped fire areas where available.
+      const wildfireIncidents = new FeatureLayer({
+        url: "https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/0",
+        title: "Active Wildfires — Incidents",
+        visible: true,
+        outFields: [
+          "IncidentName",
+          "IncidentTypeCategory",
+          "DailyAcres",
+          "CalculatedAcres",
+          "PercentContained",
+          "POOState",
+          "POOCounty",
+          "FireDiscoveryDateTime",
+          "ModifiedOnAge"
+        ],
+        renderer: {
+          type: "simple",
+          symbol: {
+            type: "picture-marker",
+            // Flame icon (Twemoji). The marker stays readable over the topo map.
+            url: "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f525.svg",
+            width: "24px",
+            height: "24px"
+          }
+        },
+        popupTemplate: {
+          title: "{IncidentName}",
+          content: [
+            { type: "fields", fieldInfos: [
+              { fieldName: "IncidentTypeCategory", label: "Incident type" },
+              { fieldName: "DailyAcres", label: "Daily acres", format: { digitSeparator: true, places: 1 } },
+              { fieldName: "CalculatedAcres", label: "Calculated acres", format: { digitSeparator: true, places: 1 } },
+              { fieldName: "PercentContained", label: "Percent contained", format: { digitSeparator: true, places: 0 } },
+              { fieldName: "POOCounty", label: "County" },
+              { fieldName: "POOState", label: "State" },
+              { fieldName: "FireDiscoveryDateTime", label: "Discovery date", format: { dateFormat: "short-date-short-time" } },
+              { fieldName: "ModifiedOnAge", label: "Days since last update" }
+            ] }
+          ]
+        }
+      });
+
+      const wildfirePerimeters = new FeatureLayer({
+        url: "https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1",
+        title: "Active Wildfires — Perimeters",
+        visible: true,
+        outFields: ["IncidentName", "FeatureCategory", "GISAcres", "DateCurrent", "CreateDate", "Comments"],
+        popupTemplate: {
+          title: "{IncidentName}",
+          content: [
+            { type: "fields", fieldInfos: [
+              { fieldName: "FeatureCategory", label: "Fire type" },
+              { fieldName: "GISAcres", label: "Mapped acres", format: { digitSeparator: true, places: 1 } },
+              { fieldName: "DateCurrent", label: "Perimeter updated", format: { dateFormat: "short-date-short-time" } },
+              { fieldName: "CreateDate", label: "Perimeter created", format: { dateFormat: "short-date-short-time" } },
+              { fieldName: "Comments", label: "Comments" }
+            ] }
+          ]
+        }
+      });
+
+      // --------------------------------------------------
+      // KENTUCKY MESONET OBSERVATIONS
+      // --------------------------------------------------
+
+      const mesonetLayer = new FeatureLayer({
+        url: "https://kygisserver.ky.gov/arcgis/rest/services/WGS84WM_Services/Ky_Mesonet_Feed_WGS84WM/MapServer/0",
+
+        title: "Kentucky Mesonet Observations",
+
+        outFields: [
+          "NetSiteName",
+          "STID",
+          "County",
+          "AirTemperature",
+          "WindSpeed",
+          "WindDirection",
+          "DewPoint",
+          "RelativeHumidity",
+          "LocalTime"
+        ],
+
+        visible: true,
+        labelsVisible: true,
+
+        renderer: {
+          type: "simple",
+
+          symbol: {
+            type: "simple-marker",
+            style: "triangle",
+            color: [215, 35, 35, 230],
+            size: 10,
+            outline: {
+              color: [255, 255, 255, 230],
+              width: 1
+            }
+          },
+
+          // This assumes WindDirection contains compass labels such
+          // as N, NNE, NE, E, etc. Verify the actual feed values.
+          // A triangle points north by default.
+          visualVariables: [
+            {
+              type: "rotation",
+              rotationType: "geographic",
+
+              valueExpression: `
+                var d = Upper(Trim($feature.WindDirection));
+
+                When(
+                  d == "N", 0,
+                  d == "NNE", 22.5,
+                  d == "NE", 45,
+                  d == "ENE", 67.5,
+                  d == "E", 90,
+                  d == "ESE", 112.5,
+                  d == "SE", 135,
+                  d == "SSE", 157.5,
+                  d == "S", 180,
+                  d == "SSW", 202.5,
+                  d == "SW", 225,
+                  d == "WSW", 247.5,
+                  d == "W", 270,
+                  d == "WNW", 292.5,
+                  d == "NW", 315,
+                  d == "NNW", 337.5,
+                  0
+                )
+              `
+            }
+          ]
+        },
+
+        labelsVisible: true,
+
+        labelingInfo: [
+          {
+            labelExpressionInfo: {
+              // Use the field name confirmed by the live MapServer schema.
+              // Preserve the service value as-is so units are not duplicated.
+              expression: `
+                var temp = Trim(Text($feature.AirTemperature));
+                IIF(IsEmpty(temp) || Lower(temp) == "nan", "", temp)
+              `
+            },
+            labelPlacement: "above-right",
+            symbol: {
+              type: "text",
+              color: "#111111",
+              haloColor: "#ffffff",
+              haloSize: 2,
+              font: {
+                family: "Arial",
+                size: 12,
+                weight: "bold"
+              }
+            }
+          }
+        ],
+
+        popupTemplate: {
+          title: "{NetSiteName} Weather Station",
+
+          content: [
+            {
+              type: "fields",
+
+              fieldInfos: [
+                {
+                  fieldName: "AirTemperature",
+                  label: "Temperature (°F)"
+                },
+                {
+                  fieldName: "WindSpeed",
+                  label: "Wind speed (mph)"
+                },
+                {
+                  fieldName: "WindDirection",
+                  label: "Wind direction"
+                },
+                {
+                  fieldName: "DewPoint",
+                  label: "Dew point (°F)"
+                },
+                {
+                  fieldName: "RelativeHumidity",
+                  label: "Relative humidity (%)"
+                },
+                {
+                  fieldName: "LocalTime",
+                  label: "Observation time"
+                },
+                {
+                  fieldName: "County",
+                  label: "County"
+                },
+                {
+                  fieldName: "STID",
+                  label: "Station ID"
+                }
+              ]
+            }
+          ]
+        },
+
+        refreshInterval: 5
+      });
+
+      // Add Mesonet after radar so the station symbols and labels
+      // render above the radar layer.
+      map.add(wildfirePerimeters);
+      map.add(wildfireIncidents);
+      map.add(mesonetLayer);
+      // Keep NWS alert graphics above the other operational layers.
+      map.add(alertGraphics);
+
+      // Provide a visible layer list so wildfire layers can be toggled.
+      const layerList = new LayerList({
+        view: view,
+        container: document.getElementById("layerListDiv")
+      });
+
+      // --------------------------------------------------
+      // RADAR CONTROLS
+      // --------------------------------------------------
+
+      const timeLabel = document.getElementById("radarTime");
+      const statusLabel = document.getElementById("status");
+      const opacityInput = document.getElementById("opacity");
+      const opacityValue = document.getElementById("opacityValue");
+      const playButton = document.getElementById("play");
+      const previousButton = document.getElementById("previous");
+      const nextButton = document.getElementById("next");
+      const speedSelect = document.getElementById("speed");
+
+      let frames = [];
+      let frameIndex = 0;
+      let playing = false;
+      let playbackTimer = null;
+
+      function buildFrames() {
+        const now = new Date();
+
+        // Round down to a five-minute UTC boundary.
+        now.setUTCSeconds(0, 0);
+        now.setUTCMinutes(
+          Math.floor(now.getUTCMinutes() / 5) * 5
+        );
+
+        frames = [];
+
+        // Twelve estimated frames, from 60 minutes ago to 5 minutes ago.
+        for (let i = 12; i >= 1; i--) {
+          frames.push(
+            new Date(now.getTime() - i * 5 * 60 * 1000)
+          );
+        }
+
+        frameIndex = Math.max(0, frames.length - 1);
+      }
+
+      function formatTime(date) {
+        return date
+          .toISOString()
+          .replace("T", " ")
+          .slice(0, 16) + " UTC";
+      }
+
+      function displayFrame(index) {
+        if (!frames.length) {
+          return;
+        }
+
+        frameIndex = Math.max(
+          0,
+          Math.min(frames.length - 1, index)
+        );
+
+        const frame = frames[frameIndex];
+
+        // WMS time-enabled layers use the TIME parameter.
+        radar.customLayerParameters = {
+          TIME: frame.toISOString()
+        };
+
+        radar.refresh();
+
+        timeLabel.textContent = formatTime(frame);
+
+        statusLabel.textContent =
+          "Frame " + (frameIndex + 1) +
+          " of " + frames.length +
+          ". Requested time; imagery availability varies by provider.";
+
+        previousButton.disabled = frameIndex === 0;
+        nextButton.disabled = frameIndex === frames.length - 1;
+      }
+
+      function stopPlayback() {
+        playing = false;
+
+        if (playbackTimer) {
+          clearTimeout(playbackTimer);
+        }
+
+        playbackTimer = null;
+        playButton.textContent = "▶ Play";
+      }
+
+      function playStep() {
+        if (!playing) {
+          return;
+        }
+
+        // Loop continuously through the available radar time window.
+        if (frameIndex >= frames.length - 1) {
+          displayFrame(0);
+        } else {
+          displayFrame(frameIndex + 1);
+        }
+
+        playbackTimer = setTimeout(
+          playStep,
+          Number(speedSelect.value)
+        );
+      }
+
+      playButton.addEventListener("click", function () {
+        if (playing) {
+          stopPlayback();
+          return;
+        }
+
+        if (frameIndex >= frames.length - 1) {
+          displayFrame(0);
+        }
+
+        playing = true;
+        playButton.textContent = "❚❚ Pause";
+        playStep();
+      });
+
+      previousButton.addEventListener("click", function () {
+        stopPlayback();
+        displayFrame(frameIndex - 1);
+      });
+
+      nextButton.addEventListener("click", function () {
+        stopPlayback();
+        displayFrame(frameIndex + 1);
+      });
+
+      opacityInput.addEventListener("input", function () {
+        const value = Number(opacityInput.value);
+
+        radar.opacity = value / 100;
+        opacityValue.textContent = value + "%";
+      });
+
+      function refreshFrameWindow() {
+        const oldTime = frames[frameIndex];
+
+        buildFrames();
+
+        if (oldTime) {
+          let nearest = 0;
+
+          for (let i = 0; i < frames.length; i++) {
+            if (frames[i] <= oldTime) {
+              nearest = i;
+            }
+          }
+
+          frameIndex = nearest;
+        }
+
+        displayFrame(frameIndex);
+      }
+
+      radar.when().then(function () {
+        buildFrames();
+        displayFrame(frameIndex);
+
+        // Start radar playback automatically after the first frame is set.
+        // A short delay gives the initial map and radar request time to begin.
+        setTimeout(function () {
+          if (!playing) {
+            playing = true;
+            playButton.textContent = "❚❚ Pause";
+            playStep();
+          }
+        }, 1200);
+      }).catch(function (error) {
+        statusLabel.textContent =
+          "Radar service failed to initialize. Check the service URL and browser console.";
+
+        console.error("Radar initialization error:", error);
+      });
+
+      // Update the available estimated time window every five minutes.
+      setInterval(function () {
+        if (!playing) {
+          refreshFrameWindow();
+        }
+      }, 5 * 60 * 1000);
+
+      // --------------------------------------------------
+      // NATIONAL WEATHER SERVICE ALERTS
+      // --------------------------------------------------
+
+      const alertStatus = document.getElementById("alertStatus");
+      const alertList = document.getElementById("alertList");
+      const refreshAlertsButton =
+        document.getElementById("refreshAlerts");
+
+      let alertRequestInProgress = false;
+
+      function alertClass(severity) {
+        if (severity === "Extreme" || severity === "Severe") {
+          return "";
+        }
+
+        if (severity === "Moderate") {
+          return "minor";
+        }
+
+        return "watch";
+      }
+
+      function makeAlertGraphic(feature) {
+        const geometry = feature.geometry;
+
+        if (!geometry) {
+          return [];
+        }
+
+        const props = feature.properties || {};
+        const severity = props.severity || "Unknown";
+
+        const color =
+          severity === "Extreme" ? [190, 0, 0, 0.85] :
+          severity === "Severe" ? [230, 65, 30, 0.8] :
+          severity === "Moderate" ? [235, 155, 30, 0.8] :
+          [125, 95, 170, 0.8];
+
+        let polygons = [];
+
+        if (geometry.type === "Polygon") {
+          polygons = [geometry.coordinates];
+        } else if (geometry.type === "MultiPolygon") {
+          polygons = geometry.coordinates;
+        }
+
+        return polygons.map(function (coordinates) {
+          const rings = coordinates.map(function (ring) {
+            return ring.map(function (xy) {
+              return [xy[0], xy[1]];
+            });
+          });
+
+          const polygon = new Polygon({
+            rings: rings,
+            spatialReference: {
+              wkid: 4326
+            }
+          });
+
+          return new Graphic({
+            geometry: polygon,
+
+            symbol: {
+              type: "simple-fill",
+              color: [
+                color[0],
+                color[1],
+                color[2],
+                0.15
+              ],
+
+              outline: {
+                color: color,
+                width: 2
+              }
+            },
+
+            attributes: {
+              id: feature.id,
+              event: props.event || "Weather alert",
+              headline:
+                props.headline ||
+                props.event ||
+                "Weather alert",
+              severity: severity,
+              description:
+                props.description ||
+                "No description supplied.",
+              instruction:
+                props.instruction ||
+                "Follow official NWS guidance.",
+              expires: props.expires || "Not specified"
+            },
+
+            popupTemplate: {
+              title: "{headline}",
+
+              content:
+                "<b>Severity:</b> {severity}<br>" +
+                "<b>Expires:</b> {expires}<hr>" +
+                "{description}<hr>" +
+                "<b>Instructions:</b> {instruction}"
+            }
+          });
+        });
+      }
+
+      async function loadAlerts() {
+        // Avoid multiple simultaneous refreshes.
+        if (alertRequestInProgress) {
+          return;
+        }
+
+        alertRequestInProgress = true;
+        refreshAlertsButton.disabled = true;
+        alertStatus.textContent = "Loading active alerts…";
+
+        try {
+          const response = await fetch(
+            "https://api.weather.gov/alerts/active?area=KY",
+            {
+              headers: {
+                "Accept": "application/geo+json"
+              }
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              "NWS API returned HTTP " + response.status
+            );
+          }
+
+          const data = await response.json();
+          const features = data.features || [];
+
+          // Replace existing alerts only after the new response succeeds.
+          alertGraphics.removeAll();
+          alertList.replaceChildren();
+
+          features.forEach(function (feature) {
+            makeAlertGraphic(feature).forEach(function (graphic) {
+              alertGraphics.add(graphic);
+            });
+
+            const props = feature.properties || {};
+            const title =
+              props.headline ||
+              props.event ||
+              "Weather alert";
+
+            const item = document.createElement("div");
+
+            item.className =
+              "alert-item " + alertClass(props.severity);
+
+            item.textContent =
+              title +
+              (props.areaDesc ? " — " + props.areaDesc : "");
+
+            item.addEventListener("click", async function () {
+              const graphics = makeAlertGraphic(feature);
+
+              if (graphics.length) {
+                const geometries = graphics.map(function (graphic) {
+                  return graphic.geometry;
+                });
+
+                let extent = geometries[0].extent;
+
+                for (let i = 1; i < geometries.length; i++) {
+                  if (geometries[i].extent) {
+                    extent = extent
+                      ? extent.union(geometries[i].extent)
+                      : geometries[i].extent;
+                  }
+                }
+
+                if (extent) {
+                  try {
+                    await view.goTo(extent.expand(1.5));
+                  } catch (goToError) {
+                    // Ignore navigation interruptions, such as
+                    // the user moving the map during the animation.
+                  }
+                }
+              } else {
+                alert(
+                  title + "\n\n" +
+                  (props.description ||
+                    "No description available.") +
+                  "\n\n" +
+                  (props.instruction || "")
+                );
+              }
+            });
+
+            alertList.appendChild(item);
+          });
+
+          alertStatus.textContent = features.length
+            ? features.length + " active alert(s)"
+            : "No active alerts returned for Kentucky.";
+
+        } catch (error) {
+          console.error("NWS alerts error:", error);
+
+          alertStatus.textContent =
+            "Could not load alerts. Check network access or try again.";
+
+        } finally {
+          alertRequestInProgress = false;
+          refreshAlertsButton.disabled = false;
+        }
+      }
+
+      refreshAlertsButton.addEventListener(
+        "click",
+        loadAlerts
+      );
+
+      // Initial load and periodic alert refresh.
+      view.when(function () {
+        loadAlerts();
+      });
+
+      setInterval(loadAlerts, 5 * 60 * 1000);
+
+      // Log layer errors to help diagnose service or field issues.
+      mesonetLayer.when().catch(function (error) {
+        console.error("Kentucky Mesonet layer error:", error);
+      });
+
+      mesonetLayer.on("layerview-create-error", function (event) {
+        console.error(
+          "Mesonet layer view could not be created:",
+          event.error
+        );
+      });
+    });
+  </script>
+</body>
+</html>
